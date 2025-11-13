@@ -21,12 +21,12 @@ services:
       - OIDC_USERINFO_URL=${OIDC_USERINFO_URL}
       - OIDC_LOGOUT_URL=${OIDC_LOGOUT_URL}
     ports:
-      - "8000:8000"
+      - "8001:8001"
 
   frontend:
     build: ./frontend
     environment:
-      - VITE_API_BASE_URL=${API_BASE_URL:-http://backend:8000}
+      - VITE_API_BASE_URL=${API_BASE_URL:-http://backend:8001}
     ports:
       - "5173:5173"
     depends_on:
