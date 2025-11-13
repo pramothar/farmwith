@@ -22,8 +22,6 @@ services:
       - OIDC_LOGOUT_URL=${OIDC_LOGOUT_URL}
     ports:
       - "8000:8000"
-    depends_on:
-      - db
 
   frontend:
     build: ./frontend
@@ -34,16 +32,4 @@ services:
     depends_on:
       - backend
 
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_DB: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - db-data:/var/lib/postgresql/data
 
-volumes:
-  db-data:

@@ -6,14 +6,14 @@ from pydantic import BaseModel, EmailStr, Field
 
 class UserBase(BaseModel):
     email: EmailStr
-    is_enterprise: bool
+    #is_enterprise: bool
     mfa_enabled: bool
 
 
 class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
-    is_enterprise: bool = False
+    #is_enterprise: bool = False
 
 
 class UserRead(UserBase):

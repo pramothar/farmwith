@@ -1,6 +1,6 @@
 import type { AuthConfig, MFASetupResponse, MessageResponse, TokenResponse, UserProfile } from "./types";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://15.207.115.64:8000";
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -13,7 +13,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function register(data: { email: string; password: string; is_enterprise?: boolean }): Promise<void> {
+export async function register(data: { email: string; password: string }): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

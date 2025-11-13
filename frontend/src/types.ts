@@ -11,7 +11,6 @@ export interface TokenResponse {
 export interface UserProfile {
   id: string;
   email: string;
-  is_enterprise: boolean;
   mfa_enabled: boolean;
   created_at: string;
 }

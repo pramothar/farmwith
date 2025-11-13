@@ -1,6 +1,6 @@
 import secrets
 from typing import Optional
-
+from datetime import datetime
 import pyotp
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -40,16 +40,17 @@ if settings.sso_enabled:
     oauth.register(**{k: v for k, v in register_kwargs.items() if v is not None})
 
 
-def _get_user_by_email(db: Session, email: str) -> Optional[models.User]:
-    return db.query(models.User).filter(models.User.email == email).first()
-
+def _get_user_by_email(db: Session, email: str):
+    return db.query(models.User).filter(models.User.username == email).first()
 
 @router.post("/register", response_model=schemas.UserRead, status_code=status.HTTP_201_CREATED)
 def register_user(payload: schemas.UserCreate, db: Session = Depends(get_db)):
+    # Use email as username since Supabase schema uses username field
     user = models.User(
-        email=payload.email,
-        hashed_password=get_password_hash(payload.password),
-        is_enterprise=payload.is_enterprise,
+        username=payload.email,  # Store email in username field
+        password_hash=get_password_hash(payload.password),
+        # Remove is_enterprise if not in database
+        # is_enterprise=payload.is_enterprise,
     )
     db.add(user)
     try:
@@ -64,14 +65,23 @@ def register_user(payload: schemas.UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=schemas.TokenResponse)
 def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
     user = _get_user_by_email(db, payload.email)
-    if user is None or not user.hashed_password:
+    if user is None or not user.password_hash:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    if not verify_password(payload.password, user.hashed_password):
+    if not verify_password(payload.password, user.password_hash):
+        # Update login attempts
+        user.login_attempts += 1
+        user.last_attempt = datetime.utcnow()
+        db.commit()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+
+    # Reset login attempts on successful login
+    user.login_attempts = 0
+    user.last_login = datetime.utcnow()
+    db.commit()
 
     if user.mfa_enabled:
-        if not user.mfa_secret:
+        if not user.totp_secret:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="MFA secret missing",
@@ -81,13 +91,12 @@ def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="MFA code required",
             )
-        totp = pyotp.TOTP(user.mfa_secret)
+        totp = pyotp.TOTP(user.totp_secret)
         if not totp.verify(payload.totp_code, valid_window=1):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid MFA code")
 
     token = create_access_token(str(user.id))
     return schemas.TokenResponse(access_token=token)
-
 
 @router.get("/config", response_model=schemas.AuthConfigResponse)
 def auth_config():

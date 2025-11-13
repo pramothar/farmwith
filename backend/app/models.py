@@ -1,29 +1,51 @@
-import uuid
 from datetime import datetime
-
-from sqlalchemy import Boolean, Column, DateTime, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, BigInteger
+from sqlalchemy.sql import func
 
 from .database import Base
-
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email = Column(String(255), unique=True, index=True, nullable=False)
-    hashed_password = Column(String(512), nullable=True)
-    is_enterprise = Column(Boolean, default=False, nullable=False)
-    mfa_secret = Column(String(64), nullable=True)
-    mfa_enabled = Column(Boolean, default=False, nullable=False)
-    auth_provider = Column(String(128), nullable=True)
-    auth_provider_subject = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
-    )
+    # Supabase uses BigInt auto-incrementing ID, not UUID
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    
+    # Supabase uses 'username' instead of 'email' as the main field
+    username = Column(String(255), unique=True, index=True, nullable=False)
+    
+    # Supabase uses 'password_hash' instead of 'hashed_password'
+    password_hash = Column(String(255), nullable=True)
+    
+    # MFA fields in Supabase
+    totp_secret = Column(String(255), nullable=True)
+    pending_totp_secret = Column(String(255), nullable=True)
+    mfa_enabled = Column(Boolean, default=False)
+    
+    # Login tracking
+    login_attempts = Column(Integer, default=0)
+    last_attempt = Column(DateTime(timezone=True), nullable=True)
+    last_login = Column(DateTime(timezone=True), nullable=True)
+    
+    # OIDC fields
+    oidc_sub = Column(String(255), nullable=True)
+    oidc_issuer = Column(String(255), nullable=True)
+    oidc_email = Column(String(255), nullable=True)
+    auth_method = Column(String(50), default='local')
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     def mark_sso(self, provider: str, subject: str) -> None:
         self.auth_provider = provider
-        self.auth_provider_subject = subject
-        self.is_enterprise = True
+        self.oidc_sub = subject
+        self.auth_method = 'oidc'
+
+    # Property to maintain compatibility with your existing code
+    @property
+    def email(self):
+        return self.username
+
+    @property
+    def hashed_password(self):
+        return self.password_hash

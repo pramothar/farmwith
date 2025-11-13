@@ -64,9 +64,7 @@ function Home() {
   return (
     <main>
       <div className="card-grid">
-        <LoginCard variant="buyer" enableSso={false} onTokenReceived={setToken} />
-        <LoginCard
-          variant="enterprise"
+        <LoginCard 
           enableSso={Boolean(config?.enable_sso)}
           onTokenReceived={setToken}
           onSsoRequested={handleSso}
@@ -78,7 +76,6 @@ function Home() {
           <p>
             Logged in as <strong>{profile.email}</strong>
           </p>
-          <p>Account type: {profile.is_enterprise ? "Enterprise" : "Buyer"}</p>
           <p>MFA enabled: {profile.mfa_enabled ? "Yes" : "No"}</p>
           <button onClick={() => setToken(null)}>Clear session</button>
         </div>

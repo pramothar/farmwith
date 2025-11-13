@@ -22,8 +22,8 @@ class Settings(BaseSettings):
     oidc_userinfo_url: Optional[AnyHttpUrl] = Field(default=None, env="OIDC_USERINFO_URL")
     oidc_logout_url: Optional[AnyHttpUrl] = Field(default=None, env="OIDC_LOGOUT_URL")
 
-    frontend_url: AnyHttpUrl = Field(default="http://localhost:5173", env="FRONTEND_URL")
-    backend_url: AnyHttpUrl = Field(default="http://localhost:8000", env="BACKEND_URL")
+    frontend_url: AnyHttpUrl = Field(default="http://15.207.115.64:5173", env="FRONTEND_URL")
+    backend_url: AnyHttpUrl = Field(default="http://15.207.115.64:8000", env="BACKEND_URL")
 
     class Config:
         env_file = ".env"

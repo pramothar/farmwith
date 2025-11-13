@@ -2,10 +2,7 @@ import { FormEvent, useState } from "react";
 import { initiateMfa, login, register, verifyMfa } from "../api";
 import { TokenResponse } from "../types";
 
-type LoginVariant = "buyer" | "enterprise";
-
 interface Props {
-  variant: LoginVariant;
   enableSso: boolean;
   onTokenReceived: (token: string) => void;
   onSsoRequested?: () => void;
@@ -16,7 +13,7 @@ interface MessageState {
   text: string;
 }
 
-export default function LoginCard({ variant, enableSso, onTokenReceived, onSsoRequested }: Props) {
+export default function LoginCard({ enableSso, onTokenReceived, onSsoRequested }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
@@ -25,8 +22,6 @@ export default function LoginCard({ variant, enableSso, onTokenReceived, onSsoRe
   const [token, setToken] = useState<string | null>(null);
   const [mfaSecret, setMfaSecret] = useState<string | null>(null);
   const [otpauthUrl, setOtpauthUrl] = useState<string | null>(null);
-
-  const isEnterprise = variant === "enterprise";
 
   const resetMessage = () => setMessage(null);
 
@@ -55,7 +50,8 @@ export default function LoginCard({ variant, enableSso, onTokenReceived, onSsoRe
     resetMessage();
     setLoading(true);
     try {
-      await register({ email, password, is_enterprise: isEnterprise });
+      // Remove is_enterprise from the register call
+      await register({ email, password });
       setMessage({ type: "success", text: "Account created. You can login now." });
     } catch (error: unknown) {
       const text = error instanceof Error ? error.message : "Unable to register";
@@ -107,18 +103,11 @@ export default function LoginCard({ variant, enableSso, onTokenReceived, onSsoRe
     }
   };
 
-  const title = isEnterprise ? "Enterprise buyer login" : "Buyer login";
-  const description = isEnterprise
-    ? enableSso
-      ? "Sign in with your enterprise credentials. Choose password + MFA or use single sign-on."
-      : "Sign in with password + MFA." 
-    : "Sign in using email, password and your authenticator app.";
-
   return (
     <div className="card">
       <div>
-        <h2>{title}</h2>
-        <p>{description}</p>
+        <h2>Login</h2>
+        <p>Sign in using email, password and your authenticator app.</p>
       </div>
       <form onSubmit={handleLogin}>
         <label>
@@ -181,7 +170,7 @@ export default function LoginCard({ variant, enableSso, onTokenReceived, onSsoRe
         )}
       </div>
 
-      {isEnterprise && enableSso && onSsoRequested && (
+      {enableSso && onSsoRequested && (
         <button type="button" onClick={onSsoRequested} disabled={loading}>
           Continue with single sign-on
         </button>
