@@ -59,6 +59,16 @@ Services exposed:
 
 Update `DATABASE_URL` in `.env` to the Supabase connection string, then comment out or remove the `db` service in `docker-compose.yml` if not needed.
 
+### Running behind a reverse proxy
+
+When you terminate TLS at Nginx (or any other reverse proxy) make sure the FastAPI process respects the `X-Forwarded-Proto` header so the OpenAPI schema advertises the correct `https` URLs. The provided Docker image already runs Uvicorn with `--proxy-headers --forwarded-allow-ips=*`. If you invoke Uvicorn manually, add those flags to your command:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8001 --proxy-headers --forwarded-allow-ips "*"
+```
+
+Without these switches the Swagger UI at `https://api.farmwith.online/docs` loads over HTTPS but will attempt to call the HTTP origin, which modern browsers block as mixed content.
+
 ## API overview
 
 | Endpoint | Method | Description |
