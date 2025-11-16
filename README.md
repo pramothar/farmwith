@@ -67,16 +67,7 @@ When you terminate TLS at Nginx (or any other reverse proxy) make sure the FastA
 uvicorn app.main:app --host 0.0.0.0 --port 8001 --proxy-headers --forwarded-allow-ips "*"
 ```
 
-> **Heads-up about TLS redirects**
->
-> Certbot’s default `ssl.conf` snippet adds `if ($host = example.com) { return 301 https://$host$request_uri; }` to **both** the HTTP and HTTPS server blocks when you enable the redirect option. Leaving that `return` inside the TLS block causes Nginx to endlessly reply with `301 Moved Permanently` before the request reaches Uvicorn, so `https://api.farmwith.online/docs` never loads. Keep the 301 redirect only on the port 80 server.
-
-Example configs for the FarmWith domains live in [`deploy/nginx`](deploy/nginx). They redirect traffic exactly once on port 80 and forward HTTPS traffic straight to the Docker containers:
-
-- [`deploy/nginx/api.conf`](deploy/nginx/api.conf) — proxies `api.farmwith.online` to `localhost:8001`.
-- [`deploy/nginx/frontend.conf`](deploy/nginx/frontend.conf) — proxies `farmwith.online` to `localhost:5173`.
-
-Reload Nginx after installing the files (`sudo ln -s /path/to/repo/deploy/nginx/api.conf /etc/nginx/sites-enabled/api.farmwith.online` etc.) and Certbot will continue to manage the certificates referenced in those files.
+Without these switches the Swagger UI at `https://api.farmwith.online/docs` loads over HTTPS but will attempt to call the HTTP origin, which modern browsers block as mixed content.
 
 ## API overview
 
