@@ -37,7 +37,7 @@ cp .env.example .env
 | `SESSION_SECRET_KEY` | Secret for encrypting session cookies used during the Authentik handshake. |
 | `FRONTEND_URL` | External URL that serves the React app. Used for OIDC redirect after login. |
 | `BACKEND_URL` | External URL for the FastAPI service (used as the redirect base). |
-| `API_BASE_URL` | Internal URL that the frontend uses to contact the backend when running in Docker (defaults to `http://backend:8000`). |
+| `API_BASE_URL` | Internal URL that the frontend uses to contact the backend when running in Docker (defaults to `http://backend:8001`). |
 
 ### Authentik SSO
 
@@ -52,12 +52,22 @@ docker compose up --build
 Services exposed:
 
 - Frontend: <http://localhost:5173>
-- Backend: <http://localhost:8000>
+- Backend: <http://localhost:8001>
 - Local Postgres (optional for dev): `localhost:5432`
 
 ### Using Supabase instead of the local Postgres container
 
 Update `DATABASE_URL` in `.env` to the Supabase connection string, then comment out or remove the `db` service in `docker-compose.yml` if not needed.
+
+### Running behind a reverse proxy
+
+When you terminate TLS at Nginx (or any other reverse proxy) make sure the FastAPI process respects the `X-Forwarded-Proto` header so the OpenAPI schema advertises the correct `https` URLs. The provided Docker image already runs Uvicorn with `--proxy-headers --forwarded-allow-ips=*`. If you invoke Uvicorn manually, add those flags to your command:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8001 --proxy-headers --forwarded-allow-ips "*"
+```
+
+Without these switches the Swagger UI at `https://api.farmwith.online/docs` loads over HTTPS but will attempt to call the HTTP origin, which modern browsers block as mixed content.
 
 ## API overview
 
