@@ -37,7 +37,7 @@ cp .env.example .env
 | `SESSION_SECRET_KEY` | Secret for encrypting session cookies used during the Authentik handshake. |
 | `FRONTEND_URL` | External URL that serves the React app. Used for OIDC redirect after login. |
 | `BACKEND_URL` | External URL for the FastAPI service (used as the redirect base). |
-| `API_BASE_URL` | Internal URL that the frontend uses to contact the backend when running in Docker (defaults to `http://backend:8000`). |
+| `API_BASE_URL` | Internal URL that the frontend uses to contact the backend when running in Docker (defaults to `http://backend:8001`). |
 
 ### Authentik SSO
 
@@ -52,7 +52,7 @@ docker compose up --build
 Services exposed:
 
 - Frontend: <http://localhost:5173>
-- Backend: <http://localhost:8000>
+- Backend: <http://localhost:8001>
 - Local Postgres (optional for dev): `localhost:5432`
 
 ### Using Supabase instead of the local Postgres container
