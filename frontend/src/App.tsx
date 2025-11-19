@@ -13,6 +13,7 @@ function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [remembered, setRemembered] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
@@ -27,9 +28,17 @@ function Home() {
   }, []);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("farmwith_token");
-    if (stored) {
-      setToken(stored);
+    const storedPersistent = localStorage.getItem("farmwith_token");
+    if (storedPersistent) {
+      setToken(storedPersistent);
+      setRemembered(true);
+      return;
+    }
+
+    const storedSession = sessionStorage.getItem("farmwith_token");
+    if (storedSession) {
+      setToken(storedSession);
+      setRemembered(false);
     }
   }, []);
 
@@ -37,16 +46,28 @@ function Home() {
     if (!token) {
       setProfile(null);
       sessionStorage.removeItem("farmwith_token");
+      localStorage.removeItem("farmwith_token");
       return;
     }
-    sessionStorage.setItem("farmwith_token", token);
+    if (remembered) {
+      localStorage.setItem("farmwith_token", token);
+      sessionStorage.removeItem("farmwith_token");
+    } else {
+      sessionStorage.setItem("farmwith_token", token);
+      localStorage.removeItem("farmwith_token");
+    }
     fetchProfile(token)
       .then(setProfile)
       .catch(() => setProfile(null));
-  }, [token]);
+  }, [token, remembered]);
 
   const handleSso = () => {
     window.location.href = getSsoLoginUrl();
+  };
+
+  const handleToken = (newToken: string, remember: boolean) => {
+    setRemembered(remember);
+    setToken(newToken);
   };
 
   if (loading) {
@@ -64,9 +85,9 @@ function Home() {
   return (
     <main>
       <div className="card-grid">
-        <LoginCard 
+        <LoginCard
           enableSso={Boolean(config?.enable_sso)}
-          onTokenReceived={setToken}
+          onTokenReceived={handleToken}
           onSsoRequested={handleSso}
         />
       </div>
@@ -76,7 +97,6 @@ function Home() {
           <p>
             Logged in as <strong>{profile.email}</strong>
           </p>
-          <p>MFA enabled: {profile.mfa_enabled ? "Yes" : "No"}</p>
           <button onClick={() => setToken(null)}>Clear session</button>
         </div>
       )}

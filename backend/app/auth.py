@@ -1,7 +1,7 @@
 import secrets
-from typing import Optional
-from datetime import datetime
-import pyotp
+from datetime import datetime, timedelta
+import smtplib
+from email.message import EmailMessage
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
@@ -80,22 +80,11 @@ def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
     user.last_login = datetime.utcnow()
     db.commit()
 
-    if user.mfa_enabled:
-        if not user.totp_secret:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="MFA secret missing",
-            )
-        if not payload.totp_code:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="MFA code required",
-            )
-        totp = pyotp.TOTP(user.totp_secret)
-        if not totp.verify(payload.totp_code, valid_window=1):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid MFA code")
+    expires_delta = None
+    if payload.remember:
+        expires_delta = timedelta(days=settings.remember_me_expire_days)
 
-    token = create_access_token(str(user.id))
+    token = create_access_token(str(user.id), expires_delta=expires_delta)
     return schemas.TokenResponse(access_token=token)
 
 @router.get("/config", response_model=schemas.AuthConfigResponse)
@@ -106,36 +95,41 @@ def auth_config():
     )
 
 
-@router.post("/mfa/setup", response_model=schemas.MFASetupResponse)
-def mfa_setup(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.mfa_secret is None:
-        current_user.mfa_secret = pyotp.random_base32(length=32)
-        db.add(current_user)
-        db.commit()
-        db.refresh(current_user)
 
-    totp = pyotp.TOTP(current_user.mfa_secret)
-    otpauth_url = totp.provisioning_uri(name=current_user.email, issuer_name=settings.app_name)
-    return schemas.MFASetupResponse(secret=current_user.mfa_secret, otpauth_url=otpauth_url)
+@router.post("/forgot", response_model=schemas.MessageResponse)
+def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depends(get_db)):
+    user = _get_user_by_email(db, payload.email)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-
-@router.post("/mfa/verify", response_model=schemas.MessageResponse)
-def mfa_verify(
-    payload: schemas.MFAVerifyRequest,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    if current_user.mfa_secret is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="MFA is not initialized")
-
-    totp = pyotp.TOTP(current_user.mfa_secret)
-    if not totp.verify(payload.code, valid_window=1):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid MFA code")
-
-    current_user.mfa_enabled = True
-    db.add(current_user)
+    new_password = secrets.token_urlsafe(8)
+    user.password_hash = get_password_hash(new_password)
+    db.add(user)
     db.commit()
-    return schemas.MessageResponse(detail="MFA enabled")
+
+    try:
+        _send_email(
+            to_address=payload.email,
+            subject="Your FarmWith password has been reset",
+            body=(
+                "Hello,\n\n"
+                "Your password has been reset by an administrator.\n"
+                f"New password: {new_password}\n\n"
+                "Please sign in and update your password if needed."
+            ),
+        )
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:  # pragma: no cover - network errors
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to send reset email",
+        ) from exc
+
+    return schemas.MessageResponse(detail="Password reset email sent")
 
 
 @router.get("/me", response_model=schemas.UserRead)
@@ -173,7 +167,7 @@ async def sso_callback(request: Request, db: Session = Depends(get_db)):
 
     user = _get_user_by_email(db, email)
     if user is None:
-        user = models.User(email=email, hashed_password=None, is_enterprise=True)
+        user = models.User(username=email, password_hash=None)
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -186,3 +180,20 @@ async def sso_callback(request: Request, db: Session = Depends(get_db)):
     access_token = create_access_token(str(user.id))
     redirect_url = f"{settings.frontend_url}/sso/callback?token={access_token}"
     return RedirectResponse(url=redirect_url)
+
+
+def _send_email(*, to_address: str, subject: str, body: str) -> None:
+    if not settings.smtp_host or not settings.smtp_username or not settings.smtp_password:
+        raise RuntimeError("SMTP settings are not configured")
+
+    message = EmailMessage()
+    message["From"] = settings.smtp_from
+    message["To"] = to_address
+    message["Subject"] = subject
+    message.set_content(body)
+
+    with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
+        if settings.smtp_use_tls:
+            server.starttls()
+        server.login(settings.smtp_username, settings.smtp_password)
+        server.send_message(message)
