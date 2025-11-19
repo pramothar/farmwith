@@ -29,6 +29,13 @@ class Settings(BaseSettings):
         env="ALLOWED_ORIGINS",
     )
 
+    smtp_host: str = Field(default="email-smtp.us-east-1.amazonaws.com", env="SMTP_HOST")
+    smtp_port: int = Field(default=587, env="SMTP_PORT")
+    smtp_username: Optional[str] = Field(default=None, env="SMTP_USERNAME")
+    smtp_password: Optional[str] = Field(default=None, env="SMTP_PASSWORD")
+    smtp_from: str = Field(default="admin@pramoth.in", env="SMTP_FROM")
+    smtp_use_tls: bool = Field(default=True, env="SMTP_USE_TLS")
+
     class Config:
         env_file = ".env"
         case_sensitive = False

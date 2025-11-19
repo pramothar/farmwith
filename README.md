@@ -2,17 +2,17 @@
 
 This repository contains a dockerised authentication stack for **FarmWith** consisting of:
 
-- **FastAPI** backend with JWT issuance, local username/password authentication, MFA/TOTP, and optional Authentik OIDC single sign-on.
-- **React (Vite)** frontend that exposes buyer and enterprise login experiences, including MFA management and SSO hand-off.
+- **FastAPI** backend with JWT issuance, local username/password authentication, password reset email delivery via SES, and optional Authentik OIDC single sign-on.
+- **React (Vite)** frontend that exposes buyer and enterprise login experiences with explicit username/password and SSO entry points.
 - **PostgreSQL** database (Postgres 15) for local development. In production you can point the backend at your Supabase instance.
 
 ## Features
 
 - Secure password storage using Argon2.
-- MFA/TOTP provisioning and enforcement for all username/password logins.
 - Configurable Authentik OIDC integration (enabled via `ENABLE_SSO=true`).
 - JWT-based session handling with `/auth/me` endpoint for profile introspection.
 - Frontend SSO callback workflow with session persistence.
+- Password reset flow that emails a new password through Amazon SES SMTP credentials.
 
 ## Prerequisites
 
@@ -39,10 +39,15 @@ cp .env.example .env
 | `BACKEND_URL` | External URL for the FastAPI service (used as the redirect base). |
 | `API_BASE_URL` | Internal URL that the frontend uses to contact the backend when running in Docker (defaults to `http://backend:8001`). |
 | `ALLOWED_ORIGINS` | Comma-separated list of origins permitted by CORS (defaults to `https://farmwith.online,http://localhost:5173`). |
+| `SMTP_HOST` | SMTP endpoint (SES: `email-smtp.us-east-1.amazonaws.com`). |
+| `SMTP_PORT` | SMTP port (SES supports 25/587/2587 for STARTTLS or 465/2465 for TLS wrapper). |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | SMTP credentials from the SES console. |
+| `SMTP_FROM` | From address for password reset messages (e.g., `admin@pramoth.in`). |
+| `SMTP_USE_TLS` | Whether to issue `STARTTLS` before sending mail (default `true`). |
 
 ### Authentik SSO
 
-Set `ENABLE_SSO=true` to expose the SSO option on the enterprise login card. Provide either the discovery URL (`OIDC_CONFIGURATION_URL`) **or** the individual authorize/token/userinfo/logout endpoints. Populate `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` with the values from your Authentik application (`farmwith`).
+Set `ENABLE_SSO=true` to expose the SSO option on the enterprise login card. Provide either the discovery URL (`OIDC_CONFIGURATION_URL`) **or** the individual authorize/token/userinfo/logout endpoints. Populate `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` with the values from your Authentik application (`farmwith`). When `ENABLE_SSO` is false the frontend will show a popup explaining that SSO is not configured.
 
 ## Running locally
 
@@ -84,9 +89,8 @@ Reload Nginx after installing the files (`sudo ln -s /path/to/repo/deploy/nginx/
 | Endpoint | Method | Description |
 | --- | --- | --- |
 | `/auth/register` | POST | Register buyer/enterprise users with password. |
-| `/auth/login` | POST | Username/password login. Requires MFA code once enabled. |
-| `/auth/mfa/setup` | POST | Generates a TOTP secret for the authenticated user. |
-| `/auth/mfa/verify` | POST | Verifies a TOTP code and enables MFA for the user. |
+| `/auth/login` | POST | Username/password login. |
+| `/auth/forgot` | POST | Resets the password and emails a new one via SES. |
 | `/auth/config` | GET | Returns whether SSO is enabled for the frontend. |
 | `/auth/me` | GET | Returns current user profile (requires Bearer token). |
 | `/auth/sso/login` | GET | Starts the Authentik OIDC flow (browser redirect). |
@@ -94,15 +98,14 @@ Reload Nginx after installing the files (`sudo ln -s /path/to/repo/deploy/nginx/
 
 ## Frontend workflow
 
-- Buyers use email/password plus MFA when enabled.
-- Enterprise buyers can either use MFA-enabled password login or single sign-on if SSO is active.
-- MFA setup buttons appear after a successful login and display the TOTP secret + provisioning link.
+- Buyers click "Sign in with username and password" to reveal the credentials form with “remember me” and “forgot password” actions.
+- Enterprise buyers can either use password login or single sign-on if SSO is active; otherwise they see an inline “SSO not enabled” warning when clicking SSO.
 
 ## Security notes
 
 - Always run behind HTTPS in production and set strong secrets.
 - Rotate `JWT_SECRET_KEY` and `SESSION_SECRET_KEY` periodically.
-- Enforce MFA for enterprise users by policy and leverage Authentik conditional access for additional assurance.
+- Keep SMTP credentials secret and rotate them regularly; SES will reject invalid credentials before sending mail.
 
 ## Development tips
 
