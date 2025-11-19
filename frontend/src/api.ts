@@ -1,6 +1,6 @@
-import type { AuthConfig, MFASetupResponse, MessageResponse, TokenResponse, UserProfile } from "./types";
+import type { AuthConfig, MessageResponse, TokenResponse, UserProfile } from "./types";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://15.207.115.64:8001";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://api.farmwith.online";
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -22,13 +22,22 @@ export async function register(data: { email: string; password: string }): Promi
   await handleResponse(response);
 }
 
-export async function login(data: { email: string; password: string; totp_code?: string }): Promise<TokenResponse> {
+export async function login(data: { email: string; password: string }): Promise<TokenResponse> {
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
   return handleResponse<TokenResponse>(response);
+}
+
+export async function forgotPassword(email: string): Promise<MessageResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/forgot`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  return handleResponse<MessageResponse>(response);
 }
 
 export async function fetchConfig(): Promise<AuthConfig> {
@@ -45,27 +54,4 @@ export async function fetchProfile(token: string): Promise<UserProfile> {
 
 export function getSsoLoginUrl() {
   return `${API_BASE_URL}/auth/sso/login`;
-}
-
-export async function initiateMfa(token: string): Promise<MFASetupResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/mfa/setup`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  return handleResponse<MFASetupResponse>(response);
-}
-
-export async function verifyMfa(token: string, code: string): Promise<MessageResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/mfa/verify`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ code }),
-  });
-  return handleResponse<MessageResponse>(response);
 }
