@@ -22,7 +22,7 @@ export async function register(data: { email: string; password: string }): Promi
   await handleResponse(response);
 }
 
-export async function login(data: { email: string; password: string }): Promise<TokenResponse> {
+export async function login(data: { email: string; password: string; remember: boolean }): Promise<TokenResponse> {
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

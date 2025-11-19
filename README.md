@@ -35,6 +35,7 @@ cp .env.example .env
 | `DATABASE_URL` | PostgreSQL connection string. Use the Supabase URI or the local `db` container. |
 | `JWT_SECRET_KEY` | Secret for signing API JWTs (generate a long random string). |
 | `SESSION_SECRET_KEY` | Secret for encrypting session cookies used during the Authentik handshake. |
+| `REMEMBER_ME_EXPIRE_DAYS` | Lifetime (in days) for access tokens issued when "Remember me" is checked (default 30). |
 | `FRONTEND_URL` | External URL that serves the React app. Used for OIDC redirect after login. |
 | `BACKEND_URL` | External URL for the FastAPI service (used as the redirect base). |
 | `API_BASE_URL` | Internal URL that the frontend uses to contact the backend when running in Docker (defaults to `http://backend:8001`). |

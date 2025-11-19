@@ -1,5 +1,5 @@
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta
 import smtplib
 from email.message import EmailMessage
 from authlib.integrations.starlette_client import OAuth
@@ -80,7 +80,11 @@ def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
     user.last_login = datetime.utcnow()
     db.commit()
 
-    token = create_access_token(str(user.id))
+    expires_delta = None
+    if payload.remember:
+        expires_delta = timedelta(days=settings.remember_me_expire_days)
+
+    token = create_access_token(str(user.id), expires_delta=expires_delta)
     return schemas.TokenResponse(access_token=token)
 
 @router.get("/config", response_model=schemas.AuthConfigResponse)
@@ -114,6 +118,11 @@ def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depend
                 "Please sign in and update your password if needed."
             ),
         )
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
     except Exception as exc:  # pragma: no cover - network errors
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

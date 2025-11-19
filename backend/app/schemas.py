@@ -23,6 +23,7 @@ class UserRead(UserBase):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    remember: bool = False
 
 
 class TokenResponse(BaseModel):

@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     session_secret_key: str = Field(..., env="SESSION_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=30)
+    remember_me_expire_days: int = Field(default=30, env="REMEMBER_ME_EXPIRE_DAYS")
 
     enable_sso: bool = Field(default=False, env="ENABLE_SSO")
     oidc_provider_name: str = Field(default="Authentik", env="OIDC_PROVIDER_NAME")

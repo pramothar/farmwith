@@ -33,7 +33,7 @@ export default function LoginCard({ enableSso, onTokenReceived, onSsoRequested }
     resetMessage();
     setLoading(true);
     try {
-      const data = await login({ email, password });
+      const data = await login({ email, password, remember: rememberMe });
       handleAuthResponse(data);
     } catch (error: unknown) {
       const text = error instanceof Error ? error.message : "Unable to login";
