@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import AnyHttpUrl, BaseSettings, Field, validator
 
@@ -22,8 +22,12 @@ class Settings(BaseSettings):
     oidc_userinfo_url: Optional[AnyHttpUrl] = Field(default=None, env="OIDC_USERINFO_URL")
     oidc_logout_url: Optional[AnyHttpUrl] = Field(default=None, env="OIDC_LOGOUT_URL")
 
-    frontend_url: AnyHttpUrl = Field(default="http://15.207.115.64:5173", env="FRONTEND_URL")
-    backend_url: AnyHttpUrl = Field(default="http://15.207.115.64:8001", env="BACKEND_URL")
+    frontend_url: AnyHttpUrl = Field(default="https://farmwith.online", env="FRONTEND_URL")
+    backend_url: AnyHttpUrl = Field(default="https://api.farmwith.online", env="BACKEND_URL")
+    allowed_origins: List[AnyHttpUrl] = Field(
+        default_factory=lambda: ["https://farmwith.online", "http://localhost:5173"],
+        env="ALLOWED_ORIGINS",
+    )
 
     class Config:
         env_file = ".env"
