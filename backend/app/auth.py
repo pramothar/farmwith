@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import smtplib
 from email.message import EmailMessage
 from authlib.integrations.starlette_client import OAuth
+from httpx import HTTPError
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import IntegrityError
@@ -152,7 +153,13 @@ async def sso_login(request: Request):
         )
 
     redirect_uri = f"{settings.backend_url}/auth/sso/callback"
-    return await oauth.create_client(SSO_CLIENT_NAME).authorize_redirect(request, redirect_uri)
+    try:
+        return await oauth.create_client(SSO_CLIENT_NAME).authorize_redirect(request, redirect_uri)
+    except HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="SSO provider is unavailable",
+        ) from exc
 
 
 @router.get("/sso/callback")
@@ -163,13 +170,25 @@ async def sso_callback(request: Request, db: Session = Depends(get_db)):
         )
 
     client = oauth.create_client(SSO_CLIENT_NAME)
-    token = await client.authorize_access_token(request)
+    try:
+        token = await client.authorize_access_token(request)
+    except HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="SSO provider is unavailable",
+        ) from exc
     if token is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="SSO authorization failed")
 
     userinfo = token.get("userinfo")
     if userinfo is None:
-        userinfo = await client.parse_id_token(request, token)
+        try:
+            userinfo = await client.parse_id_token(request, token)
+        except HTTPError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="SSO provider is unavailable",
+            ) from exc
 
     email = userinfo.get("email")
     subject = userinfo.get("sub") or secrets.token_hex(16)

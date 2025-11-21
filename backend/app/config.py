@@ -47,6 +47,12 @@ class Settings(BaseSettings):
             return None
         return v
 
+    @validator("enable_sso", pre=True)
+    def parse_enable_sso(cls, v):  # type: ignore[override]
+        if isinstance(v, str):
+            return v.strip().lower() in {"1", "true", "yes", "on"}
+        return v
+
     @validator(
         "oidc_configuration_url",
         "oidc_authorize_url",
