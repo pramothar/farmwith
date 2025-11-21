@@ -11,15 +11,8 @@ export interface TokenResponse {
 export interface UserProfile {
   id: string;
   email: string;
-  mfa_enabled: boolean;
   created_at: string;
 }
-
-export interface MFASetupResponse {
-  secret: string;
-  otpauth_url: string;
-}
-
 export interface MessageResponse {
   detail: string;
 }

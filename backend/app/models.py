@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Boolean, Column, Integer, String, DateTime, BigInteger
+from sqlalchemy import Column, Integer, String, DateTime, BigInteger
 from sqlalchemy.sql import func
 
 from .database import Base
@@ -15,11 +15,6 @@ class User(Base):
     
     # Supabase uses 'password_hash' instead of 'hashed_password'
     password_hash = Column(String(255), nullable=True)
-    
-    # MFA fields in Supabase
-    totp_secret = Column(String(255), nullable=True)
-    pending_totp_secret = Column(String(255), nullable=True)
-    mfa_enabled = Column(Boolean, default=False)
     
     # Login tracking
     login_attempts = Column(Integer, default=0)
