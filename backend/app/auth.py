@@ -17,9 +17,11 @@ from .security import create_access_token, get_password_hash, verify_password
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 oauth = OAuth()
+SSO_CLIENT_NAME = "authentik"
+_sso_client_registered = False
 if settings.sso_enabled:
     register_kwargs = {
-        "name": "authentik",
+        "name": SSO_CLIENT_NAME,
         "client_id": settings.oidc_client_id,
         "client_secret": settings.oidc_client_secret,
         "client_kwargs": {"scope": "openid email profile"},
@@ -38,6 +40,11 @@ if settings.sso_enabled:
             }
         )
     oauth.register(**{k: v for k, v in register_kwargs.items() if v is not None})
+    _sso_client_registered = True
+
+
+def _is_sso_available() -> bool:
+    return settings.sso_enabled and _sso_client_registered
 
 
 def _get_user_by_email(db: Session, email: str):
@@ -90,7 +97,7 @@ def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
 @router.get("/config", response_model=schemas.AuthConfigResponse)
 def auth_config():
     return schemas.AuthConfigResponse(
-        enable_sso=settings.sso_enabled,
+        enable_sso=_is_sso_available(),
         oidc_provider_name=settings.oidc_provider_name,
     )
 
@@ -139,25 +146,30 @@ def read_current_user(current_user: models.User = Depends(get_current_user)):
 
 @router.get("/sso/login")
 async def sso_login(request: Request):
-    if not settings.sso_enabled:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SSO disabled")
+    if not _is_sso_available():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="SSO is disabled or misconfigured"
+        )
 
     redirect_uri = f"{settings.backend_url}/auth/sso/callback"
-    return await oauth.authentik.authorize_redirect(request, redirect_uri)
+    return await oauth.create_client(SSO_CLIENT_NAME).authorize_redirect(request, redirect_uri)
 
 
 @router.get("/sso/callback")
 async def sso_callback(request: Request, db: Session = Depends(get_db)):
-    if not settings.sso_enabled:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SSO disabled")
+    if not _is_sso_available():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="SSO is disabled or misconfigured"
+        )
 
-    token = await oauth.authentik.authorize_access_token(request)
+    client = oauth.create_client(SSO_CLIENT_NAME)
+    token = await client.authorize_access_token(request)
     if token is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="SSO authorization failed")
 
     userinfo = token.get("userinfo")
     if userinfo is None:
-        userinfo = await oauth.authentik.parse_id_token(request, token)
+        userinfo = await client.parse_id_token(request, token)
 
     email = userinfo.get("email")
     subject = userinfo.get("sub") or secrets.token_hex(16)
