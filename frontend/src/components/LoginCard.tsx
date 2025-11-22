@@ -122,7 +122,7 @@ export default function LoginCard({
         <span>Sign in with SSO</span>
       </button>
 
-      {message && <div className={`alert ${message.type}`}>{message.text}</div>}
+      {message && <div className={`alert ${message.type}`} style={{ marginTop: "1rem" }}>{message.text}</div>}
     </div>
   );
 }
