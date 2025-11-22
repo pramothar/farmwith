@@ -198,7 +198,14 @@ async def sso_callback(request: Request, db: Session = Depends(get_db)):
 
     user = _get_user_by_email(db, email)
     if user is None:
-        user = models.User(username=email, password_hash=None)
+        # Some databases enforce a NOT NULL constraint on password_hash; use a
+        # placeholder so SSO-only accounts can be created without local
+        # credentials.
+        user = models.User(
+            username=email,
+            password_hash="sso-placeholder",
+            auth_method="oidc",
+        )
         db.add(user)
         db.commit()
         db.refresh(user)
