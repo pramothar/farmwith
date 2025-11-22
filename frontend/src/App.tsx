@@ -335,9 +335,33 @@ export default function App() {
     navigate("/dashboard");
   };
 
-  const handleSso = () => {
-    window.location.href = getSsoLoginUrl();
-  };
+  const quickWins = [
+    "Soil testing reminders and mandal-wise weather alerts.",
+    "FPO / cooperative friendly documentation for compliance.",
+    "UPI-friendly payouts with TDS-ready summaries.",
+  ];
+
+  return (
+    <section className="dashboard">
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <p className="eyebrow">Welcome back</p>
+            <h2>{profile.email}</h2>
+            <p className="helper">Keep tabs on every farm contract in one place.</p>
+          </div>
+          <div className="badge">Live beta</div>
+        </div>
+        <div className="stat-grid">
+          {stats.map((stat) => (
+            <div key={stat.label} className="stat-card">
+              <p className="stat-label">{stat.label}</p>
+              <p className="stat-value">{stat.value}</p>
+              <p className="stat-detail">{stat.detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
 
   const handleSsoCallbackToken = (newToken: string) => {
     setRemembered(false);
