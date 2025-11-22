@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import LoginCard from "./components/LoginCard";
 import { fetchConfig, fetchProfile, getSsoLoginUrl } from "./api";
 import { AuthConfig, UserProfile } from "./types";
@@ -22,8 +22,7 @@ function Spotlight() {
         <h1>FarmWith keeps your projects productive and visible.</h1>
         <p>
           Set up managed farm or livestock contracts, follow progress in real time,
-          and keep investors informed without living in spreadsheets or chat
-          threads.
+          and keep investors informed without living in spreadsheets or chat threads.
         </p>
         <div className="highlight-list">
           {highlights.map((item) => (
@@ -128,13 +127,106 @@ function Dashboard({ profile }: { profile: UserProfile }) {
   );
 }
 
-function Home() {
+function DashboardPage({ profile }: { profile: UserProfile }) {
+  return (
+    <main className="page">
+      <Spotlight />
+      <Dashboard profile={profile} />
+    </main>
+  );
+}
+
+function LoginPage({
+  loading,
+  error,
+  enableSso,
+  onTokenReceived,
+  onSsoRequested,
+}: {
+  loading: boolean;
+  error: string | null;
+  enableSso: boolean;
+  onTokenReceived: (token: string, remember: boolean) => void;
+  onSsoRequested: () => void;
+}) {
+  return (
+    <main className="auth-page">
+      <div className="auth-shell">
+        <div className="auth-panel">
+          <div>
+            <p className="eyebrow" style={{ marginBottom: "0.25rem" }}>
+              Welcome back
+            </p>
+            <h1 className="auth-title">FarmWith</h1>
+            <p className="helper">
+              Sign in to manage custodial farming projects and payouts for your investors.
+            </p>
+          </div>
+
+          <LoginCard
+            enableSso={enableSso}
+            onTokenReceived={onTokenReceived}
+            onSsoRequested={onSsoRequested}
+            busy={loading}
+          />
+
+          {error && <div className="alert error">{error}</div>}
+        </div>
+
+        <div className="auth-illustration">
+          <div className="auth-illustration-card">
+            <img
+              src="https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=1200&q=80"
+              alt="Farmer walking through a green field at sunrise"
+            />
+            <div className="auth-quote">
+              <p>
+                “Custodial farming lets investors back Indian agriculture confidently while
+                on-ground teams handle the operations.”
+              </p>
+              <span>– FarmWith</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function SsoCallback({ onTokenReceived }: { onTokenReceived: (token: string) => void }) {
+  const navigate = useNavigate();
+  const query = useQuery();
+  const token = query.get("token");
+
+  useEffect(() => {
+    if (token) {
+      onTokenReceived(token);
+      navigate("/dashboard", { replace: true });
+    } else {
+      navigate("/login", { replace: true });
+    }
+  }, [token, navigate, onTokenReceived]);
+
+  return (
+    <main className="page">
+      <div className="card">
+        <h2>Completing SSO...</h2>
+        <p>You will be redirected shortly.</p>
+      </div>
+    </main>
+  );
+}
+
+export default function App() {
+  const navigate = useNavigate();
   const [config, setConfig] = useState<AuthConfig | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [configLoading, setConfigLoading] = useState(true);
+  const [configError, setConfigError] = useState<string | null>(null);
+
   const [token, setToken] = useState<string | null>(null);
   const [remembered, setRemembered] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   useEffect(() => {
     fetchConfig()
@@ -142,9 +234,9 @@ function Home() {
         setConfig(data);
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : "Unable to load configuration");
+        setConfigError(err instanceof Error ? err.message : "Unable to load configuration");
       })
-      .finally(() => setLoading(false));
+      .finally(() => setConfigLoading(false));
   }, []);
 
   useEffect(() => {
@@ -169,6 +261,7 @@ function Home() {
       localStorage.removeItem("farmwith_token");
       return;
     }
+
     if (remembered) {
       localStorage.setItem("farmwith_token", token);
       sessionStorage.removeItem("farmwith_token");
@@ -176,89 +269,83 @@ function Home() {
       sessionStorage.setItem("farmwith_token", token);
       localStorage.removeItem("farmwith_token");
     }
-    fetchProfile(token)
-      .then(setProfile)
-      .catch(() => setProfile(null));
   }, [token, remembered]);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    setProfileLoading(true);
+    fetchProfile(token)
+      .then((data) => {
+        setProfile(data);
+      })
+      .catch(() => {
+        setProfile(null);
+        setToken(null);
+        sessionStorage.removeItem("farmwith_token");
+        localStorage.removeItem("farmwith_token");
+        navigate("/login", { replace: true });
+      })
+      .finally(() => setProfileLoading(false));
+  }, [token, navigate]);
+
+  const handleToken = (newToken: string, remember: boolean) => {
+    setRemembered(remember);
+    setToken(newToken);
+    navigate("/dashboard", { replace: true });
+  };
 
   const handleSso = () => {
     window.location.href = getSsoLoginUrl();
   };
 
-  const handleToken = (newToken: string, remember: boolean) => {
-    setRemembered(remember);
+  const handleSsoCallbackToken = (newToken: string) => {
+    setRemembered(false);
     setToken(newToken);
   };
 
-  if (loading) {
-    return <main>Loading authentication configuration...</main>;
-  }
+  const isAuthenticated = useMemo(() => Boolean(token && profile), [token, profile]);
 
-  if (error) {
-    return (
-      <main>
-        <div className="alert error">{error}</div>
-      </main>
-    );
-  }
-
-  return (
-    <main className="page">
-      <Spotlight />
-
-      <div className="card-grid" style={{ marginTop: "2rem" }}>
-        <LoginCard
-          enableSso={Boolean(config?.enable_sso)}
-          onTokenReceived={handleToken}
-          onSsoRequested={handleSso}
-        />
-        <div className="card">
-          <h2>Why FarmWith?</h2>
-          <p className="helper">
-            Built for Indian farms, cooperatives, and family offices that need a trusted
-            operator to manage on-ground tasks while keeping investors informed.
-          </p>
-          <ul className="feature-list">
-            <li>Milestone-based payouts for crops, dairy, poultry, and aqua.</li>
-            <li>Vendor and labor tracking with GST-aware expense logs.</li>
-            <li>Satellite + field photo galleries to show harvest progress.</li>
-            <li>Support for WhatsApp/email notifications in English & Hindi.</li>
-          </ul>
-        </div>
-      </div>
-
-      {token && profile && <Dashboard profile={profile} />}
-    </main>
-  );
-}
-
-function SsoCallback() {
-  const navigate = useNavigate();
-  const query = useQuery();
-  const token = query.get("token");
-
-  useEffect(() => {
-    if (token) {
-      sessionStorage.setItem("farmwith_token", token);
-    }
-    navigate("/", { replace: true });
-  }, [token, navigate]);
-
-  return (
-    <main>
-      <div className="card">
-        <h2>Completing SSO...</h2>
-        <p>You will be redirected shortly.</p>
-      </div>
-    </main>
-  );
-}
-
-export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/sso/callback" element={<SsoCallback />} />
+      <Route
+        path="/login"
+        element=
+          {
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <LoginPage
+                loading={configLoading || profileLoading}
+                error={configError}
+                enableSso={Boolean(config?.enable_sso)}
+                onTokenReceived={handleToken}
+                onSsoRequested={handleSso}
+              />
+            )
+          }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          isAuthenticated ? (
+            <DashboardPage profile={profile as UserProfile} />
+          ) : configLoading ? (
+            <main className="page">
+              <div className="card">Loading your session...</div>
+            </main>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/sso/callback"
+        element={<SsoCallback onTokenReceived={handleSsoCallbackToken} />}
+      />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }
