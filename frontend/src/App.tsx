@@ -327,6 +327,7 @@ export default function App() {
     navigate("/login");
   };
 
+  const hasToken = useMemo(() => Boolean(token), [token]);
   const isAuthenticated = useMemo(() => Boolean(token && profile), [token, profile]);
 
   return (
@@ -349,9 +350,17 @@ export default function App() {
         element={
           isAuthenticated ? (
             <DashboardPage profile={profile as UserProfile} onLogout={handleLogout} />
-          ) : configLoading ? (
+          ) : hasToken && profileLoading ? (
             <main className="page">
               <div className="card">Loading your session...</div>
+            </main>
+          ) : configLoading ? (
+            <main className="page">
+              <div className="card">Loading configuration...</div>
+            </main>
+          ) : hasToken ? (
+            <main className="page">
+              <div className="card">Validating your session...</div>
             </main>
           ) : (
             <Navigate to="/login" replace />
