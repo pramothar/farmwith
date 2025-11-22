@@ -130,9 +130,13 @@ function Dashboard({ profile }: { profile: UserProfile }) {
 function DashboardPage({
   profile,
   onLogout,
+  theme,
+  onThemeToggle,
 }: {
   profile: UserProfile;
   onLogout: () => void;
+  theme: "light" | "dark";
+  onThemeToggle: () => void;
 }) {
   return (
     <main className="page">
@@ -144,6 +148,11 @@ function DashboardPage({
       </div>
       <Spotlight />
       <Dashboard profile={profile} />
+      <div className="theme-fab">
+        <button type="button" className="ghost" onClick={onThemeToggle}>
+          {theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        </button>
+      </div>
     </main>
   );
 }
@@ -152,12 +161,16 @@ function LoginPage({
   loading,
   error,
   enableSso,
+  theme,
+  onThemeToggle,
   onTokenReceived,
   onSsoRequested,
 }: {
   loading: boolean;
   error: string | null;
   enableSso: boolean;
+  theme: "light" | "dark";
+  onThemeToggle: () => void;
   onTokenReceived: (token: string, remember: boolean) => void;
   onSsoRequested: () => void;
 }) {
@@ -177,6 +190,8 @@ function LoginPage({
 
           <LoginCard
             enableSso={enableSso}
+            theme={theme}
+            onThemeToggle={onThemeToggle}
             onTokenReceived={onTokenReceived}
             onSsoRequested={onSsoRequested}
             busy={loading}
@@ -239,6 +254,17 @@ export default function App() {
   const [remembered, setRemembered] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  useEffect(() => {
+    const storedTheme = (localStorage.getItem("farmwith_theme") as "light" | "dark" | null) || "light";
+    setTheme(storedTheme === "dark" ? "dark" : "light");
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("farmwith_theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     fetchConfig()
@@ -309,9 +335,33 @@ export default function App() {
     navigate("/dashboard");
   };
 
-  const handleSso = () => {
-    window.location.href = getSsoLoginUrl();
-  };
+  const quickWins = [
+    "Soil testing reminders and mandal-wise weather alerts.",
+    "FPO / cooperative friendly documentation for compliance.",
+    "UPI-friendly payouts with TDS-ready summaries.",
+  ];
+
+  return (
+    <section className="dashboard">
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <p className="eyebrow">Welcome back</p>
+            <h2>{profile.email}</h2>
+            <p className="helper">Keep tabs on every farm contract in one place.</p>
+          </div>
+          <div className="badge">Live beta</div>
+        </div>
+        <div className="stat-grid">
+          {stats.map((stat) => (
+            <div key={stat.label} className="stat-card">
+              <p className="stat-label">{stat.label}</p>
+              <p className="stat-value">{stat.value}</p>
+              <p className="stat-detail">{stat.detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
 
   const handleSsoCallbackToken = (newToken: string) => {
     setRemembered(false);
@@ -327,6 +377,10 @@ export default function App() {
     navigate("/login");
   };
 
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  };
+
   const hasToken = useMemo(() => Boolean(token), [token]);
   const isAuthenticated = useMemo(() => Boolean(token && profile), [token, profile]);
 
@@ -340,6 +394,8 @@ export default function App() {
               loading={configLoading || profileLoading}
               error={configError}
               enableSso={Boolean(config?.enable_sso)}
+              theme={theme}
+              onThemeToggle={toggleTheme}
               onTokenReceived={handleToken}
               onSsoRequested={handleSso}
             />
@@ -349,7 +405,12 @@ export default function App() {
         path="/dashboard"
         element={
           isAuthenticated ? (
-            <DashboardPage profile={profile as UserProfile} onLogout={handleLogout} />
+            <DashboardPage
+              profile={profile as UserProfile}
+              onLogout={handleLogout}
+              theme={theme}
+              onThemeToggle={toggleTheme}
+            />
           ) : hasToken && profileLoading ? (
             <main className="page">
               <div className="card">Loading your session...</div>

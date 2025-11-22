@@ -4,8 +4,10 @@ import { TokenResponse } from "../types";
 
 interface Props {
   enableSso: boolean;
+  theme: "light" | "dark";
   onTokenReceived: (token: string, remember: boolean) => void;
   onSsoRequested?: () => void;
+  onThemeToggle?: () => void;
   busy?: boolean;
 }
 
@@ -16,8 +18,10 @@ interface MessageState {
 
 export default function LoginCard({
   enableSso,
+  theme,
   onTokenReceived,
   onSsoRequested,
+  onThemeToggle,
   busy = false,
 }: Props) {
   const [email, setEmail] = useState("");
@@ -27,6 +31,12 @@ export default function LoginCard({
   const [rememberMe, setRememberMe] = useState(false);
 
   const resetMessage = () => setMessage(null);
+
+  const handleThemeToggle = () => {
+    if (onThemeToggle) {
+      onThemeToggle();
+    }
+  };
 
   const handleAuthResponse = (data: TokenResponse) => {
     onTokenReceived(data.access_token, rememberMe);
@@ -122,7 +132,23 @@ export default function LoginCard({
         <span>Sign in with SSO</span>
       </button>
 
-      {message && <div className={`alert ${message.type}`} style={{ marginTop: "1rem" }}>{message.text}</div>}
+      <div className="theme-toggle-row">
+        <label className="switch">
+          <input
+            type="checkbox"
+            checked={theme === "dark"}
+            onChange={handleThemeToggle}
+            aria-label="Toggle dark mode"
+          />
+          <span className="slider" />
+        </label>
+        <div className="theme-toggle-copy">
+          <p className="theme-label">Dark mode</p>
+          <p className="helper">Your choice carries into the dashboard.</p>
+        </div>
+      </div>
+
+      {message && <div className={`alert ${message.type}`}>{message.text}</div>}
     </div>
   );
 }
