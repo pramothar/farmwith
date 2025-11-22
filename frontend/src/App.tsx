@@ -127,9 +127,21 @@ function Dashboard({ profile }: { profile: UserProfile }) {
   );
 }
 
-function DashboardPage({ profile }: { profile: UserProfile }) {
+function DashboardPage({
+  profile,
+  onLogout,
+}: {
+  profile: UserProfile;
+  onLogout: () => void;
+}) {
   return (
     <main className="page">
+      <div className="topbar">
+        <div className="topbar-brand">FarmWith</div>
+        <button type="button" className="ghost" onClick={onLogout}>
+          Log out
+        </button>
+      </div>
       <Spotlight />
       <Dashboard profile={profile} />
     </main>
@@ -294,7 +306,7 @@ export default function App() {
   const handleToken = (newToken: string, remember: boolean) => {
     setRemembered(remember);
     setToken(newToken);
-    navigate("/dashboard", { replace: true });
+    navigate("/dashboard");
   };
 
   const handleSso = () => {
@@ -306,6 +318,15 @@ export default function App() {
     setToken(newToken);
   };
 
+  const handleLogout = () => {
+    setToken(null);
+    setProfile(null);
+    setRemembered(false);
+    sessionStorage.removeItem("farmwith_token");
+    localStorage.removeItem("farmwith_token");
+    navigate("/login");
+  };
+
   const isAuthenticated = useMemo(() => Boolean(token && profile), [token, profile]);
 
   return (
@@ -314,24 +335,20 @@ export default function App() {
         path="/login"
         element=
           {
-            isAuthenticated ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <LoginPage
-                loading={configLoading || profileLoading}
-                error={configError}
-                enableSso={Boolean(config?.enable_sso)}
-                onTokenReceived={handleToken}
-                onSsoRequested={handleSso}
-              />
-            )
+            <LoginPage
+              loading={configLoading || profileLoading}
+              error={configError}
+              enableSso={Boolean(config?.enable_sso)}
+              onTokenReceived={handleToken}
+              onSsoRequested={handleSso}
+            />
           }
       />
       <Route
         path="/dashboard"
         element={
           isAuthenticated ? (
-            <DashboardPage profile={profile as UserProfile} />
+            <DashboardPage profile={profile as UserProfile} onLogout={handleLogout} />
           ) : configLoading ? (
             <main className="page">
               <div className="card">Loading your session...</div>
